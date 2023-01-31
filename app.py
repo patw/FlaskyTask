@@ -38,14 +38,14 @@ class SearchForm(FlaskForm):
 # Atlas search query for task search 
 # Lucene english analyzer, boosting on task name over description
 # and searching on project name with bury
-# Compound filter on open/closed
+# Compound mustNot on open/closed
 def search_tasks(search_string, closed):
     
-    # For the compound filter
+    # For the mustNot filter
     if closed:
-        status = "Closed"
-    else:
         status = "Open"
+    else:
+        status = "Closed"
 
     search_query = [
     {   
@@ -71,7 +71,7 @@ def search_tasks(search_string, closed):
                         "score": { "boost": { "value": 0.3 } } 
                     }
                 }],
-                "filter": [{
+                "mustNot": [{
                     "text": {
                         "query": status, 
                         "path": "status"
