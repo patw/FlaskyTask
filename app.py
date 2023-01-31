@@ -6,7 +6,7 @@ from wtforms.validators import DataRequired
 import os
 import pymongo
 from bson import ObjectId
-from datetime import datetime
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 
@@ -31,11 +31,106 @@ class TaskForm(FlaskForm):
     task_due = DateField('Task Due')
     submit = SubmitField('Submit')
 
+class SearchForm(FlaskForm):
+    search_string = StringField('Search', validators=[DataRequired()])
+    submit = SubmitField('Submit')
+
+# Atlas search query for task search 
+# Lucene english analyzer, boosting on task name over description
+# and searching on project name with bury
+# Compound filter on open/closed
+def search_tasks(search_string, closed):
+    
+    # For the compound filter
+    if closed:
+        status = "Closed"
+    else:
+        status = "Open"
+
+    search_query = [
+    {   
+        "$search": {
+            "compound": {
+                "should": [{
+                    "text": {
+                        "query": search_string, 
+                        "path": "task_name",
+                        "score": { "boost": { "value": 2 } } 
+                    }
+                },
+                {
+                    "text": {
+                        "query": search_string, 
+                        "path": "task_desc"
+                    }
+                },
+                {
+                    "text": {
+                        "query": search_string, 
+                        "path": "task_project",
+                        "score": { "boost": { "value": 0.3 } } 
+                    }
+                }],
+                "filter": [{
+                    "text": {
+                        "query": status, 
+                        "path": "status"
+                    }
+                }]
+            }
+        }
+    },
+    {
+        "$limit": 25
+    },
+    {
+        "$project": {
+            "_id": 1,
+            "task_name": 1,
+            "task_project": 1,
+            "task_priority": 1,
+            "task_due": 1,
+            "task_desc": 1,
+            "score": {"$meta": "searchScore"}
+        }
+    }]
+    
+    return col.aggregate(search_query)
+
+
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    # Load all open tasks
-    tasks = col.find({"status": "Open"}).sort("task_priority")
-    return render_template('index.html', tasks=tasks)
+     # User wants open tasks or closed tasks
+    closed = request.args.get("closed")
+
+    # We're doing a search here
+    form = SearchForm()
+    if request.method == "POST":
+        form_result = request.form.to_dict(flat=True)
+        # Wildcard search across multiple paths, normal english tokens
+        tasks = search_tasks(form_result["search_string"], closed)
+        return render_template('search.html', tasks=tasks)
+
+    # Query the task list by open or closed status
+    if closed:
+        task_query = col.find({"status": "Closed"}).sort("task_priority")
+    else:
+        task_query = col.find({"status": "Open"}).sort("task_priority")
+    
+    # Process the output data with some dynamic fields
+    tasks = []
+    for task_item in task_query:
+        task_item["overdue"] = False
+        # Find out if tasks are overdue so they can be marked in red
+        if task_item["task_due"]:
+            due = datetime.strptime(task_item["task_due"], "%Y-%m-%d")
+            today = datetime.now()
+            if (today - due).days >= 0:
+                task_item["overdue"] = True
+        tasks.append(task_item)
+
+    # Spit out the template
+    return render_template('index.html', tasks=tasks, form=form)
 
 @app.route('/task', methods=['GET', 'POST'])
 @app.route('/task/<id>', methods=['GET', 'POST'])
@@ -85,3 +180,10 @@ def task_down(id):
     col.update_one({'_id': ObjectId(id)}, task_status)
     return redirect('/')
 
+@app.route('/task_reschedule/<id>')
+def task_reschedule(id):
+    # Set new due date 7 days ahead
+    new_date = datetime.now() + timedelta(days = 7)
+    task_due = { "$set": { "task_due": str(new_date.date()) } }
+    col.update_one({'_id': ObjectId(id)}, task_due)
+    return redirect('/')

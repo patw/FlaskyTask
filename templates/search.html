@@ -22,45 +22,37 @@ Flasky Task
     <div class="row">
         <div class="col-md-10 col-lg-8 mx-lg-auto mx-md-auto">
 
-            <h1 class="pt-5 pb-2">Task List</h1>
-
-            <p class="lead"><a href="/task">New Task</a></p>
-
-            {{ wtf.quick_form(form) }}
+            <h1 class="pt-5 pb-2">Task Search</h1>
 
             <nav class="nav">
-                <a class="nav-link active" aria-current="page" href="/">Open Tasks</a>
-                <a class="nav-link" href="/?closed=True">Closed Tasks</a>
+                <a class="nav-link active" aria-current="page" href="/">Task View</a>
             </nav>
 
             <table class="table table-striped">
                 <thead>
                     <tr>
-                        <th>Task Name</th>
+                        <th>Name</th>
                         <th>Project</th>
                         <th>Priority</th>
                         <th>Due</th>
-                        <th>Completed</th>
-                        <th>Raise</th>
-                        <th>Lower</th>
+                        <th>Description</th>
+                        <th>Score</th>
                     </tr>
                 </thead>
 
                 <tbody>
                     {% for task in tasks %}
-                    <tr {% if task.overdue %} class="table-danger" {% endif %} >
+                    <tr>
                         <td><a href="task/{{ task._id}}">{{ task.task_name }}</a></td>
                         <td>{{ task.task_project }}</td>
                         <td>{{ task.task_priority }}</td>
                         <td><a href="task_reschedule/{{ task._id}}"> {{ task.task_due }}</a></td>
-                        <td><a href="task_close/{{ task._id}}">X</a></td>
-                        <td><a href="task_up/{{ task._id}}">^</a></td>
-                        <td><a href="task_down/{{ task._id}}">v</a></td>
+                        <td>{{ task.task_desc }}</td>
+                        <td>{{ task.score }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
-
         </div>
     </div>
 </div>

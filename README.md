@@ -18,3 +18,33 @@ Copy sample.env to .env and modify with connection string to your Atlas instance
 
 ```flask -e .env run```
 
+
+## Atlas Search Index Mapping
+
+```
+{
+  "analyzer": "lucene.english",
+  "searchAnalyzer": "lucene.english",
+  "mappings": {
+    "dynamic": false,
+    "fields": {
+      "status": {
+        "analyzer": "lucene.keyword",
+        "searchAnalyzer": "lucene.keyword",
+        "type": "string"
+      },
+      "task_desc": {
+        "analyzer": "lucene.english",
+        "searchAnalyzer": "lucene.english",
+        "type": "string"
+      },
+      "task_name": {
+        "analyzer": "lucene.english",
+        "searchAnalyzer": "lucene.english",
+        "type": "string"
+      }
+    }
+  }
+}
+```
+
