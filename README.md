@@ -42,6 +42,11 @@ Copy sample.env to .env and modify with connection string to your Atlas instance
         "analyzer": "lucene.english",
         "searchAnalyzer": "lucene.english",
         "type": "string"
+      },
+      "task_project": {
+        "analyzer": "lucene.english",
+        "searchAnalyzer": "lucene.english",
+        "type": "string"
       }
     }
   }
