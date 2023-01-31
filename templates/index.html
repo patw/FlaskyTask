@@ -40,9 +40,9 @@ Flasky Task
                         <th>Project</th>
                         <th>Priority</th>
                         <th>Due</th>
-                        <th>Completed</th>
-                        <th>Raise</th>
-                        <th>Lower</th>
+                        <th>Done</th>
+                        <th>Up</th>
+                        <th>Down</th>
                     </tr>
                 </thead>
 
@@ -53,9 +53,9 @@ Flasky Task
                         <td>{{ task.task_project }}</td>
                         <td>{{ task.task_priority }}</td>
                         <td><a href="task_reschedule/{{ task._id}}"> {{ task.task_due }}</a></td>
-                        <td><a href="task_close/{{ task._id}}">X</a></td>
-                        <td><a href="task_up/{{ task._id}}">^</a></td>
-                        <td><a href="task_down/{{ task._id}}">v</a></td>
+                        <td><a href="task_close/{{ task._id}}">&check;</a></td>
+                        <td><a href="task_up/{{ task._id}}">&uarr;</a></td>
+                        <td><a href="task_down/{{ task._id}}">&darr;</a></td>
                     </tr>
                     {% endfor %}
                 </tbody>

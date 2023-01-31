@@ -158,8 +158,9 @@ def task(id=None):
             form.task_desc.data = task["task_desc"]
             form.task_priority.data = task["task_priority"]
             form.task_project.data = task["task_project"]
-            date_object = datetime.strptime(task["task_due"], "%Y-%m-%d" ).date()
-            form.task_due.data = date_object
+            if task["task_due"]:
+                date_object = datetime.strptime(task["task_due"], "%Y-%m-%d" ).date()
+                form.task_due.data = date_object
     return render_template('task.html',form=form)
 
 @app.route('/task_close/<id>')
