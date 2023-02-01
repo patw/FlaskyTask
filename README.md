@@ -16,7 +16,7 @@ FlaskyTask allows you to:
 
 Copy sample.env to .env and modify with connection string to your Atlas instance
 
-```flask -e .env run```
+```flask run```
 
 
 ## Atlas Search Index Mapping
