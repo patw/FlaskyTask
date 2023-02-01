@@ -7,6 +7,10 @@ import os
 import pymongo
 from bson import ObjectId
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
+
+# Get environment variables
+load_dotenv()
 
 app = Flask(__name__)
 
