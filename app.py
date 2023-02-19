@@ -169,7 +169,8 @@ def task(id=None):
             form.task_desc.data = task["task_desc"]
             form.task_priority.data = task["task_priority"]
             form.task_project.data = task["task_project"]
-            form.task_repeat.data = task["task_repeat"]
+            if "task_repeat" in task:
+                form.task_repeat.data = task["task_repeat"]
             if task["task_due"]:
                 date_object = datetime.strptime(task["task_due"], "%Y-%m-%d" ).date()
                 form.task_due.data = date_object
