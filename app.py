@@ -150,6 +150,11 @@ def task(id=None):
         form_result["status"] = "Open"
         form_result["task_priority"] = int(form_result["task_priority"])
 
+        # If they set a repeat on a task, and not a due date, we can fix that
+        if form_result["task_repeat"] != "" and form_result["task_due"] == "":
+            tomorrow = datetime.now() + timedelta(days = 1)
+            form_result["task_due"] = str(tomorrow.date())
+
         # Store the result in mongo collection
         if id:
             col.replace_one({'_id': ObjectId(id)}, form_result)
@@ -211,3 +216,21 @@ def task_reschedule(id):
     task_due = { "$set": { "task_due": str(new_date.date()), "status": "Open" } }
     col.update_one({'_id': ObjectId(id)}, task_due)
     return redirect('/')
+
+# Called from cron with curl to re-open tasks that need to come back
+# should be safe to call manually
+@app.route('/cron')
+def cron():
+    closed_tasks_to_open = {
+        "status": "Closed",
+        "task_reopen_date": {'$lte': datetime.now()}
+    }
+    task_status = { 
+        "$set": { 
+            "status": "Open",
+            "task_reopen_date": "",
+            "task_due": str(datetime.now().date())
+        } 
+    }
+    all_closed_tasks = col.update_many(closed_tasks_to_open, task_status)
+    return {"status": "Done"}
