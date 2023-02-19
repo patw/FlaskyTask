@@ -208,6 +208,6 @@ def task_down(id):
 def task_reschedule(id):
     # Set new due date 7 days ahead
     new_date = datetime.now() + timedelta(days = 7)
-    task_due = { "$set": { "task_due": str(new_date.date()) } }
+    task_due = { "$set": { "task_due": str(new_date.date()), "status": "Open" } }
     col.update_one({'_id': ObjectId(id)}, task_due)
     return redirect('/')
