@@ -1,8 +1,8 @@
 from flask import Flask, render_template, redirect, url_for, request
 from flask_bootstrap import Bootstrap
 from flask_wtf import FlaskForm
-from wtforms import StringField, SubmitField, TextAreaField, DateField, SelectField, HiddenField
-from wtforms.validators import DataRequired
+from wtforms import StringField, SubmitField, TextAreaField, DateField, SelectField, IntegerField
+from wtforms.validators import DataRequired, NumberRange
 import os
 import pymongo
 from bson import ObjectId
@@ -33,6 +33,7 @@ class TaskForm(FlaskForm):
     task_priority = SelectField('Priority', choices=[(2, 'Normal'), (1, 'Urgent'), (3, 'Low')])
     task_desc = TextAreaField('Task Description')
     task_due = DateField('Task Due')
+    task_repeat = IntegerField('Repeat Every X Days', validators=[NumberRange(min=1, max=365)])
     submit = SubmitField('Submit')
 
 class SearchForm(FlaskForm):
@@ -169,8 +170,25 @@ def task(id=None):
 
 @app.route('/task_close/<id>')
 def task_close(id):
-    task_status = { "$set": { "status": "Closed" } }
-    col.update_one({'_id': ObjectId(id)}, task_status)
+
+    update_doc = {
+        "status": "Closed",
+        "closed_on": datetime.now()
+    }
+
+    task_data = col.find_one({'_id': ObjectId(id)})
+    # We need to have a due date and a repeat in X days value set
+    # If we do set the task_reopen_date field so we can run a task
+    # in the background to open this task again
+    if "task_repeat" in task_data and "task_due" in task_data:
+        if task_data["task_repeat"] != "" and "task_due" != "":
+            days_to_push = int(task_data["task_repeat"])
+            due_date = datetime.strptime(task_data["task_due"], "%Y-%m-%d" )
+            task_reopen_date = due_date + timedelta(days = days_to_push)
+            update_doc["task_reopen_date"] = task_reopen_date 
+
+    # Now we close the task and mark the date it closed
+    col.update_one({'_id': ObjectId(id)}, { "$set": update_doc})
     return redirect('/')
 
 @app.route('/task_up/<id>')
