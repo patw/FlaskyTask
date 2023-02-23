@@ -39,10 +39,12 @@ Bootstrap(app)
 class TaskForm(FlaskForm):
     task_name = StringField('Task Name', validators=[DataRequired()])
     task_project = StringField('Task Category')
-    task_priority = SelectField('Priority', choices=[(2, 'Normal'), (1, 'Urgent'), (3, 'Low')])
+    task_priority = SelectField(
+        'Priority', choices=[(2, 'Normal'), (1, 'Urgent'), (3, 'Low')])
     task_desc = TextAreaField('Task Description')
     task_due = DateField('Task Due')
-    task_repeat = IntegerField('Repeat Every X Days', validators=[NumberRange(min=1, max=365)])
+    task_repeat = IntegerField('Repeat Every X Days', validators=[
+                               NumberRange(min=1, max=365)])
     submit = SubmitField('Submit')
 
 # Amazing
@@ -56,12 +58,12 @@ class LoginForm(FlaskForm):
     password = PasswordField('Password', validators=[DataRequired()])
     submit = SubmitField('Login')
 
-# Atlas search query for task search 
+# Atlas search query for task search
 # Lucene english analyzer, boosting on task name over description
 # and searching on project name with bury
 # Compound filter on open/closed with a min match of 1 in the shoulds
 def search_tasks(search_string, closed):
-    
+
     # For the search filter
     if closed:
         status = "Closed"
@@ -69,71 +71,71 @@ def search_tasks(search_string, closed):
         status = "Open"
 
     search_query = [
-    {   
-        "$search": {
-            "compound": {
-                "should": [{
-                    "text": {
-                        "query": search_string, 
-                        "path": "task_name",
-                        "score": { "boost": { "value": 2 } } 
-                    }
-                },
-                {
-                    "text": {
-                        "query": search_string, 
-                        "path": "task_desc"
-                    }
-                },
-                {
-                    "text": {
-                        "query": search_string, 
-                        "path": "task_project",
-                        "score": { "boost": { "value": 0.3 } } 
-                    }
-                }], 
-                "minimumShouldMatch": 1,
-                "filter": [{
-                    "text": {
-                        "query": status, 
-                        "path": "status"
-                    }
-                }]
+        {
+            "$search": {
+                "compound": {
+                    "should": [{
+                        "text": {
+                            "query": search_string,
+                            "path": "task_name",
+                            "score": {"boost": {"value": 2}}
+                        }
+                    },
+                        {
+                        "text": {
+                            "query": search_string,
+                            "path": "task_desc"
+                        }
+                    },
+                        {
+                        "text": {
+                            "query": search_string,
+                            "path": "task_project",
+                            "score": {"boost": {"value": 0.3}}
+                        }
+                    }],
+                    "minimumShouldMatch": 1,
+                    "filter": [{
+                        "text": {
+                            "query": status,
+                            "path": "status"
+                        }
+                    }]
+                }
             }
-        }
-    },
-    {
-        "$limit": 25
-    },
-    {
-        "$project": {
-            "_id": 1,
-            "task_name": 1,
-            "task_project": 1,
-            "task_priority": 1,
-            "task_due": 1,
-            "task_desc": 1,
-            "score": {"$meta": "searchScore"}
-        }
-    }]
-    
+        },
+        {
+            "$limit": 25
+        },
+        {
+            "$project": {
+                "_id": 1,
+                "task_name": 1,
+                "task_project": 1,
+                "task_priority": 1,
+                "task_due": 1,
+                "task_desc": 1,
+                "score": {"$meta": "searchScore"}
+            }
+        }]
+
     return col.aggregate(search_query)
 
 # Define a decorator to check if the user is authenticated
-# No idea how this works... 
+# No idea how this works...
 def login_required(view):
     @functools.wraps(view)
     def wrapped_view(**kwargs):
-        if session.get("user")  is None:
+        if session.get("user") is None:
             return redirect(url_for('login'))
         return view(**kwargs)
     return wrapped_view
 
-# The default task view, ordered by priority and highlighted in red if overdue    
+# The default task view, ordered by priority and highlighted in red if overdue
 @app.route('/', methods=['GET', 'POST'])
 @login_required
 def index():
-     # User wants open tasks or closed tasks
+    # User wants open tasks or closed tasks
     closed = request.args.get("closed")
 
     # We're doing a search here
@@ -149,7 +151,7 @@ def index():
         task_query = col.find({"status": "Closed"}).sort("task_priority")
     else:
         task_query = col.find({"status": "Open"}).sort("task_priority")
-    
+
     # Process the output data with some dynamic fields
     tasks = []
     for task_item in task_query:
@@ -181,7 +183,7 @@ def task(id=None):
 
         # If they set a repeat on a task, and not a due date, we can fix that
         if form_result["task_repeat"] != "" and form_result["task_due"] == "":
-            tomorrow = datetime.now() + timedelta(days = 1)
+            tomorrow = datetime.now() + timedelta(days=1)
             form_result["task_due"] = str(tomorrow.date())
 
         # Store the result in mongo collection
@@ -201,9 +203,10 @@ def task(id=None):
             if "task_repeat" in task:
                 form.task_repeat.data = task["task_repeat"]
             if task["task_due"]:
-                date_object = datetime.strptime(task["task_due"], "%Y-%m-%d" ).date()
+                date_object = datetime.strptime(
+                    task["task_due"], "%Y-%m-%d").date()
                 form.task_due.data = date_object
-    return render_template('task.html',form=form)
+    return render_template('task.html', form=form)
 
 # Task is done!  Set it's status to Closed
 @app.route('/task_close/<id>')
@@ -221,12 +224,12 @@ def task_close(id):
     if "task_repeat" in task_data and "task_due" in task_data:
         if task_data["task_repeat"] != "" and "task_due" != "":
             days_to_push = int(task_data["task_repeat"])
-            due_date = datetime.strptime(task_data["task_due"], "%Y-%m-%d" )
-            task_reopen_date = due_date + timedelta(days = days_to_push)
-            update_doc["task_reopen_date"] = task_reopen_date 
+            due_date = datetime.strptime(task_data["task_due"], "%Y-%m-%d")
+            task_reopen_date = due_date + timedelta(days=days_to_push)
+            update_doc["task_reopen_date"] = task_reopen_date
 
     # Now we close the task and mark the date it closed
-    col.update_one({'_id': ObjectId(id)}, { "$set": update_doc})
+    col.update_one({'_id': ObjectId(id)}, {"$set": update_doc})
     return redirect('/')
 
 # Tasks can only go up to 1 or down to 3
@@ -234,7 +237,7 @@ def task_close(id):
 @app.route('/task_up/<id>')
 @login_required
 def task_up(id):
-    task_status = { "$set": { "task_priority": 1 } }
+    task_status = {"$set": {"task_priority": 1}}
     col.update_one({'_id': ObjectId(id)}, task_status)
     return redirect('/')
 
@@ -242,7 +245,7 @@ def task_up(id):
 @app.route('/task_down/<id>')
 @login_required
 def task_down(id):
-    task_status = { "$set": { "task_priority": 3 } }
+    task_status = {"$set": {"task_priority": 3}}
     col.update_one({'_id': ObjectId(id)}, task_status)
     return redirect('/')
 
@@ -252,8 +255,8 @@ def task_down(id):
 @login_required
 def task_reschedule(id):
     # Set new due date 7 days ahead
-    new_date = datetime.now() + timedelta(days = 7)
-    task_due = { "$set": { "task_due": str(new_date.date()), "status": "Open" } }
+    new_date = datetime.now() + timedelta(days=7)
+    task_due = {"$set": {"task_due": str(new_date.date()), "status": "Open"}}
     col.update_one({'_id': ObjectId(id)}, task_due)
     return redirect('/')
 
@@ -268,6 +271,7 @@ def login():
                 return redirect(url_for('index'))
     return render_template('login.html', form=form)
 
+
 @app.route('/logout')
 def logout():
     session["user"] = None
@@ -281,12 +285,12 @@ def cron():
         "status": "Closed",
         "task_reopen_date": {'$lte': datetime.now()}
     }
-    task_status = { 
-        "$set": { 
+    task_status = {
+        "$set": {
             "status": "Open",
             "task_reopen_date": "",
             "task_due": str(datetime.now().date())
-        } 
+        }
     }
     col.update_many(closed_tasks_to_open, task_status)
     return {"status": "Done"}

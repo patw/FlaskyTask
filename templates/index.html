@@ -48,7 +48,7 @@ Flasky Task
 
                 <tbody>
                     {% for task in tasks %}
-                    <tr {% if task.overdue %} class="table-danger" {% endif %} >
+                    <tr {% if task.overdue %} class="table-danger" {% endif %}>
                         <td><a href="task/{{ task._id}}">{{ task.task_name }}</a></td>
                         <td>{{ task.task_project }}</td>
                         <td>{{ task.task_priority }}</td>
