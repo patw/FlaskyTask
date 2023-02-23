@@ -1,0 +1,20 @@
+{% extends 'bootstrap/base.html' %}
+{% import "bootstrap/wtf.html" as wtf %}
+
+{% block styles %}
+{{ super() }}
+<style>
+    body {
+        background: #e8f1f9;
+    }
+</style>
+{% endblock %}
+
+{% block title %}
+Flasky Task
+{% endblock %}
+
+{% block content %}
+  <h1>Login</h1>
+  {{ wtf.quick_form(form) }}
+{% endblock %}

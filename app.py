@@ -1,20 +1,28 @@
-from flask import Flask, render_template, redirect, url_for, request
+from flask import Flask, render_template, redirect, url_for, request, session
 from flask_bootstrap import Bootstrap
 from flask_wtf import FlaskForm
-from wtforms import StringField, SubmitField, TextAreaField, DateField, SelectField, IntegerField
+from wtforms import StringField, SubmitField, TextAreaField, DateField, SelectField, IntegerField, PasswordField
 from wtforms.validators import DataRequired, NumberRange
 import os
+import json
 import pymongo
 from bson import ObjectId
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
+import functools
 
 # Get environment variables
 load_dotenv()
 
+# Create the Flask app object
 app = Flask(__name__)
 
+# Need this for storing anything in session object
 app.config['SECRET_KEY'] = os.environ["SECRET_KEY"]
+
+# Load users from .env file
+users_string = os.environ["USERS"]
+users = json.loads(users_string)
 
 # Connect to mongo
 conn = os.environ["MONGO_CON"]
@@ -27,6 +35,7 @@ col = db[collection]
 # Make it pretty because I can't :(
 Bootstrap(app)
 
+# Flask forms is magic
 class TaskForm(FlaskForm):
     task_name = StringField('Task Name', validators=[DataRequired()])
     task_project = StringField('Task Category')
@@ -36,9 +45,16 @@ class TaskForm(FlaskForm):
     task_repeat = IntegerField('Repeat Every X Days', validators=[NumberRange(min=1, max=365)])
     submit = SubmitField('Submit')
 
+# Amazing
 class SearchForm(FlaskForm):
     search_string = StringField('Search', validators=[DataRequired()])
     submit = SubmitField('Submit')
+
+# Astounding
+class LoginForm(FlaskForm):
+    username = StringField('Username', validators=[DataRequired()])
+    password = PasswordField('Password', validators=[DataRequired()])
+    submit = SubmitField('Login')
 
 # Atlas search query for task search 
 # Lucene english analyzer, boosting on task name over description
@@ -103,8 +119,19 @@ def search_tasks(search_string, closed):
     
     return col.aggregate(search_query)
 
+# Define a decorator to check if the user is authenticated
+# No idea how this works... 
+def login_required(view):
+    @functools.wraps(view)
+    def wrapped_view(**kwargs):
+        if session.get("user")  is None:
+            return redirect(url_for('login'))
+        return view(**kwargs)
+    return wrapped_view
 
+# The default task view, ordered by priority and highlighted in red if overdue    
 @app.route('/', methods=['GET', 'POST'])
+@login_required
 def index():
      # User wants open tasks or closed tasks
     closed = request.args.get("closed")
@@ -138,8 +165,10 @@ def index():
     # Spit out the template
     return render_template('index.html', tasks=tasks, form=form)
 
+# Create or edit tasks
 @app.route('/task', methods=['GET', 'POST'])
 @app.route('/task/<id>', methods=['GET', 'POST'])
+@login_required
 def task(id=None):
     form = TaskForm()
     if request.method == "POST":
@@ -176,9 +205,10 @@ def task(id=None):
                 form.task_due.data = date_object
     return render_template('task.html',form=form)
 
+# Task is done!  Set it's status to Closed
 @app.route('/task_close/<id>')
+@login_required
 def task_close(id):
-
     update_doc = {
         "status": "Closed",
         "closed_on": datetime.now()
@@ -199,25 +229,49 @@ def task_close(id):
     col.update_one({'_id': ObjectId(id)}, { "$set": update_doc})
     return redirect('/')
 
+# Tasks can only go up to 1 or down to 3
+# Terrible... why do I do these things.
 @app.route('/task_up/<id>')
+@login_required
 def task_up(id):
     task_status = { "$set": { "task_priority": 1 } }
     col.update_one({'_id': ObjectId(id)}, task_status)
     return redirect('/')
 
+# This is awful
 @app.route('/task_down/<id>')
+@login_required
 def task_down(id):
     task_status = { "$set": { "task_priority": 3 } }
     col.update_one({'_id': ObjectId(id)}, task_status)
     return redirect('/')
 
+# Reschedules tasks next week when clicking on the date
+# Why 7 days?  No idea.  Seems fine.
 @app.route('/task_reschedule/<id>')
+@login_required
 def task_reschedule(id):
     # Set new due date 7 days ahead
     new_date = datetime.now() + timedelta(days = 7)
     task_due = { "$set": { "task_due": str(new_date.date()), "status": "Open" } }
     col.update_one({'_id': ObjectId(id)}, task_due)
     return redirect('/')
+
+# Login/logout routes that rely on the user being stored in session
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    form = LoginForm()
+    if form.validate_on_submit():
+        if form.username.data in users:
+            if form.password.data == users[form.username.data]:
+                session["user"] = form.username.data
+                return redirect(url_for('index'))
+    return render_template('login.html', form=form)
+
+@app.route('/logout')
+def logout():
+    session["user"] = None
+    return redirect(url_for('login'))
 
 # Called from cron with curl to re-open tasks that need to come back
 # should be safe to call manually
@@ -234,5 +288,5 @@ def cron():
             "task_due": str(datetime.now().date())
         } 
     }
-    all_closed_tasks = col.update_many(closed_tasks_to_open, task_status)
+    col.update_many(closed_tasks_to_open, task_status)
     return {"status": "Done"}
